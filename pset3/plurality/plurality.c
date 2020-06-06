@@ -1,128 +1,125 @@
-#include <stdio.h>
 #include <cs50.h>
+#include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 
-void print_help(string program);
-int validate_key(string key);
+// Max number of candidates
+#define MAX 9
+
+// Candidates have name and vote count
+typedef struct
+{
+    string name;
+    int votes;
+}
+candidate;
+
+// Array of candidates
+candidate candidates[MAX];
+
+// Number of candidates
+int candidate_count;
+
+// Function prototypes
+bool vote(string name);
+void print_winner(void);
 
 int main(int argc, string argv[])
 {
-    if (argc != 2)
+    // Check for invalid usage
+    if (argc < 2)
     {
-        print_help(argv[0]);
+        printf("Usage: plurality [candidate ...]\n");
         return 1;
     }
 
-    string key = argv[1];
-
-    // validate the key
-    switch (validate_key(key))
+    // Populate array of candidates
+    candidate_count = argc - 1;
+    if (candidate_count > MAX)
     {
-        case 0:
-            printf("Key must only have letters.\n");
-            return 1;
-
-        case -1:
-            printf("Key must not contain the same character more than once.\n");
-            return 1;
-
-        case -2:
-            printf("Key must contain 26 characters.\n");
-            return 1;
+        printf("Maximum number of candidates is %i\n", MAX);
+        return 2;
+    }
+    for (int i = 0; i < candidate_count; i++)
+    {
+        candidates[i].name = argv[i + 1];
+        candidates[i].votes = 0;
     }
 
-    // convert the key to all uppercase
-    for (int i = 0, n = strlen(key); i < n; i++)
-    {
-        key[i] = toupper(key[i]);
-    }
+    int voter_count = get_int("Number of voters: ");
 
-    // get the input from the user
-    string plaintext = get_string("plaintext: ");
-    string ciphertext = plaintext;
-
-    // iterate through each letter and apply the cipher
-    for (int i = 0, n = strlen(plaintext); i < n; i++)
+    // Loop over all voters
+    for (int i = 0; i < voter_count; i++)
     {
-        // check to make sure item is a letter
-        if (isalpha(plaintext[i]))
+        string name = get_string("Vote: ");
+
+        // Check for invalid vote
+        if (!vote(name))
         {
-            int start;
-            bool upper = false;
-
-            // if character is upper case set start to 65 from ascii
-            if (isupper(plaintext[i]))
-            {
-                start = 65;
-                // set upper flag to true
-                upper = true;
-            }
-            else
-            {
-                // otherwise set start to ascii 97
-                start = 97;
-            }
-
-            // find the corresponding cipher in the key
-            int find = (plaintext[i] - start) % 26;
-
-            // if the upper flat was set earlier just replace it with the substitution
-            if (upper)
-            {
-                ciphertext[i] = key[find];
-            }
-            else
-            {
-                // otherwise convert the character to lowercase
-                ciphertext[i] = tolower(key[find]);
-            }
+            printf("Invalid vote.\n");
         }
     }
 
-    printf("ciphertext: %s\n", ciphertext);
+    // Display winner of election
+    print_winner();
 }
 
-void print_help(string program)
+// Update vote totals given a new vote
+bool vote(string name)
 {
-    printf("Usage: %s key\n", program);
-}
-
-// Validate the key, make sure it is 26 characters, and doesnt have any numbers and also doesnt have any duplicate characters
-int validate_key(string key)
-{
-
-    if (strlen(key) != 26)
+    for (int i = 0; i < candidate_count; i++)
     {
-        return -2;
+        if (strcmp(candidates[i].name, name) == 0)
+        {
+            candidates[i].votes++;
+            return true;
+        }
     }
 
-    // iterate through each item in the key array
-    for (int i = 0, n = strlen(key); i < n; i ++)
+    return false;
+}
+
+// Print the winner (or winners) of the election
+void print_winner(void)
+{
+    // create tmp candidate
+    candidate tmp[1];
+
+    // keep track of candidates with the same number of votes
+    int same_votes = 1;
+
+    // interate through all candidates
+    for (int i = 0; i < candidate_count; i++)
     {
-        // set current key
-        char current_key = key[i];
-
-        // check if key is a non letter
-        if (!isalpha(current_key))
+        // iterate through the candidates once more and sort them (linear sort)
+        for (int j = 0; j < candidate_count - i; j++)
         {
-            return 0;
-        }
-
-        // iterate through all keys in the array
-        for (int j = 0; j < 26; j++)
-        {
-            // make sure we're not looking at the same position
-            if (j != i)
+            // if the next ones votes are more than the current ones
+            if (candidates[j].votes < candidates[j + 1].votes)
             {
-                // return false if we find the key more than once
-                if (current_key == key[j])
-                {
-                    return -1;
-                }
+                // set the current one to a temp
+                tmp[0] = candidates[j];
+
+                // put the values of the next one to the current one
+                candidates[j] = candidates[j + 1];
+
+                // put the tmp one's values into the next one
+                candidates[j + 1] = tmp[0];
             }
         }
     }
 
-    return 1;
+    // run through the list again to determine how many ties we have
+    for (int i = 0; i < candidate_count; i++)
+    {
+        printf("%s\n", candidates[i].name);
+
+        // if the current vote count is greater than the next one just break out of the loop
+        if (candidates[i].votes > candidates[i + 1].votes)
+        {
+            break;
+        }
+    }
+
+    return;
 }
+
